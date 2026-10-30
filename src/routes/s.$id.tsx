@@ -52,9 +52,9 @@ function Vitrine() {
   const { data } = useSuspenseQuery(q(id));
   const [sel, setSel] = useState<number[]>([]);
   const [nome, setNome] = useState("");
+  const vendidos = useMemo(() => new Set(data?.vendidos ?? []), [data]);
   if (!data) return null;
   const s = data.sorteio;
-  const vendidos = useMemo(() => new Set(data.vendidos), [data.vendidos]);
   const nums = rangeNumeros(s.numero_inicial, s.numero_final);
   const premios = (s.premios_lista as string[]) ?? [];
   const ganhadores = (s.ganhadores_lista as Ganhador[]) ?? [];
