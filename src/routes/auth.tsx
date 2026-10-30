@@ -65,7 +65,7 @@ function AuthPage() {
   return (
     <div className="min-h-screen">
       <SiteHeader />
-      <main className="mx-auto max-w-sm px-5 py-8">
+      <main className="mx-auto max-w-sm px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-extrabold">{mode === "up" ? "Crie seu login de organizador" : "Bem-vindo de volta"}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Somente você poderá editar, dar baixa e sortear os sorteios que criar.
