@@ -14,13 +14,110 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      sorteio_numeros: {
+        Row: {
+          comprador_nome: string
+          comprador_telefone: string
+          created_at: string
+          id: string
+          numero: number
+          observacao: string
+          sorteio_id: string
+        }
+        Insert: {
+          comprador_nome: string
+          comprador_telefone?: string
+          created_at?: string
+          id?: string
+          numero: number
+          observacao?: string
+          sorteio_id: string
+        }
+        Update: {
+          comprador_nome?: string
+          comprador_telefone?: string
+          created_at?: string
+          id?: string
+          numero?: number
+          observacao?: string
+          sorteio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sorteio_numeros_sorteio_id_fkey"
+            columns: ["sorteio_id"]
+            isOneToOne: false
+            referencedRelation: "sorteios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sorteios: {
+        Row: {
+          created_at: string
+          descricao: string
+          ganhadores_lista: Json
+          id: string
+          imagem_url: string | null
+          nome: string
+          numero_final: number
+          numero_inicial: number
+          owner_id: string
+          preco_unitario: number
+          premio_unico_por_participante: boolean
+          premios_lista: Json
+          regras: string
+          sorteado_em: string | null
+          status: string
+          updated_at: string
+          whatsapp: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string
+          ganhadores_lista?: Json
+          id?: string
+          imagem_url?: string | null
+          nome: string
+          numero_final?: number
+          numero_inicial?: number
+          owner_id?: string
+          preco_unitario?: number
+          premio_unico_por_participante?: boolean
+          premios_lista?: Json
+          regras?: string
+          sorteado_em?: string | null
+          status?: string
+          updated_at?: string
+          whatsapp: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string
+          ganhadores_lista?: Json
+          id?: string
+          imagem_url?: string | null
+          nome?: string
+          numero_final?: number
+          numero_inicial?: number
+          owner_id?: string
+          preco_unitario?: number
+          premio_unico_por_participante?: boolean
+          premios_lista?: Json
+          regras?: string
+          sorteado_em?: string | null
+          status?: string
+          updated_at?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      numeros_vendidos: { Args: { _sorteio_id: string }; Returns: number[] }
     }
     Enums: {
       [_ in never]: never
