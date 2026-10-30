@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Plus, X } from "lucide-react";
+import { CapaUpload } from "@/components/CapaUpload";
 
 export type SorteioInput = {
   nome: string;
@@ -65,7 +66,7 @@ export function SorteioForm({
         <Field label="Preço (R$)"><Input type="number" step="0.01" min="0" required value={v.preco_unitario} onChange={(e) => set("preco_unitario", +e.target.value)} /></Field>
       </div>
       <Field label="WhatsApp para pedidos"><Input required placeholder="(85) 99999-0000" value={v.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} /></Field>
-      <Field label="Link da imagem de capa (opcional)"><Input type="url" placeholder="https://..." value={v.imagem_url ?? ""} onChange={(e) => set("imagem_url", e.target.value || null)} /></Field>
+      <Field label="Imagem de capa (opcional)"><CapaUpload value={v.imagem_url} onChange={(u) => set("imagem_url", u)} /></Field>
 
       <div>
         <Label>Prêmios (até 30)</Label>
