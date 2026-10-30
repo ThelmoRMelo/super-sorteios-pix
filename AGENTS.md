@@ -8,3 +8,7 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Raffle buyer data (sorteio_numeros) is owner-only via RLS; public pages read taken numbers through the `numeros_vendidos` RPC so names/phones never leak.
+- Public raffle pages load via publishable-key server functions in src/lib/sorteios.functions.ts so SSR can emit per-raffle share tags.
+- Draw rules live in src/lib/sorteio-logic.ts (tested) — keep UI free of eligibility logic.
