@@ -153,7 +153,7 @@ function Baixas({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; onC
 
   async function registrar(e: React.FormEvent) {
     e.preventDefault();
-    const lista = [...new Set(nums.split(/[\s,;]+/).map(Number).filter((n) => Number.isInteger(n) && n > 0 || n === 0))]
+    const lista = [...new Set(nums.split(/[\s,;]+/).filter(Boolean).map(Number).filter(Number.isInteger))]
       .filter((n) => n >= s.numero_inicial && n <= s.numero_final);
     if (!lista.length) return toast.error("Informe números válidos do intervalo");
     const ocupados = lista.filter((n) => vendidos.has(n));
