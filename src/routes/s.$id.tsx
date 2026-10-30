@@ -76,9 +76,9 @@ function Vitrine() {
     <div className="min-h-screen pb-40">
       <section className="bg-hero pb-8">
         <SiteHeader dark />
-        <div className="mx-auto max-w-3xl px-5 text-primary-foreground">
+        <div className="mx-auto w-full max-w-4xl px-4 text-primary-foreground sm:px-6 md:px-8">
           {s.imagem_url && <img src={s.imagem_url} alt={s.nome} className="mb-5 aspect-[16/9] w-full rounded-2xl object-cover shadow-ticket" />}
-          <h1 className="text-3xl font-extrabold sm:text-5xl">{s.nome}</h1>
+          <h1 className="break-words text-2xl font-extrabold sm:text-4xl md:text-5xl">{s.nome}</h1>
           {s.descricao && <p className="mt-3 whitespace-pre-line text-primary-foreground/80">{s.descricao}</p>}
           <div className="mt-5 flex flex-wrap gap-2 text-sm">
             <span className="rounded-full bg-gold px-3 py-1 font-bold text-accent-foreground">{formatBRL(preco)} / número</span>
@@ -87,7 +87,7 @@ function Vitrine() {
         </div>
       </section>
 
-      <main className="mx-auto max-w-3xl space-y-8 px-5 py-8">
+      <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-8 md:px-8">
         {ganhadores.length > 0 && (
           <section className="rounded-2xl border-2 border-accent bg-card p-5">
             <h2 className="flex items-center gap-2 text-xl font-bold"><Trophy className="size-5 text-accent-foreground" /> Ganhadores</h2>
@@ -112,7 +112,7 @@ function Vitrine() {
         </section>
 
         <section>
-          <div className="flex items-end justify-between">
+          <div className="flex flex-wrap items-end justify-between gap-2">
             <h2 className="text-xl font-bold">Escolha seus números</h2>
             <div className="flex gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><i className="size-3 rounded bg-card ring-1 ring-border" />Livre</span>
@@ -120,7 +120,7 @@ function Vitrine() {
             </div>
           </div>
           {!aberto && <p className="mt-2 text-sm text-muted-foreground">As vendas deste sorteio estão encerradas.</p>}
-          <div className="mt-4 grid grid-cols-5 gap-2 sm:grid-cols-10">
+          <div className="mt-4 grid grid-cols-5 gap-1.5 min-[380px]:gap-2 sm:grid-cols-10">
             {nums.map((n) => {
               const v = vendidos.has(n);
               const on = sel.includes(n);
@@ -150,8 +150,8 @@ function Vitrine() {
       </main>
 
       {sel.length > 0 && aberto && (
-        <div className="fixed inset-x-0 bottom-0 border-t bg-card/95 p-4 backdrop-blur">
-          <div className="mx-auto max-w-3xl space-y-3">
+        <div className="fixed inset-x-0 bottom-0 border-t bg-card/95 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-6">
+          <div className="mx-auto w-full max-w-4xl space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span>{sel.length} número(s)</span>
               <b className="font-display text-lg">{formatBRL(sel.length * preco)}</b>

@@ -56,7 +56,7 @@ function Gerenciar() {
 
   const vendas = nq.data ?? [];
   const total = s.numero_final - s.numero_inicial + 1;
-  const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/s/${s.id}` : "";
+  const publicUrl = `https://super-sorteios-pix.lovable.app/s/${s.id}`;
 
   async function setStatus(status: string) {
     const { error } = await supabase.from("sorteios").update({ status }).eq("id", id);
@@ -67,14 +67,14 @@ function Gerenciar() {
   return (
     <div className="min-h-screen">
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-5 pb-16">
+      <main className="mx-auto w-full max-w-4xl px-4 pb-16 sm:px-6 md:px-8">
         <Link to="/painel" className="inline-flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeft className="size-4" /> Meus sorteios</Link>
-        <div className="mt-2 flex items-start justify-between gap-3">
-          <h1 className="text-3xl font-extrabold">{s.nome}</h1>
-          <span className="mt-2 shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground">{STATUS_LABEL[s.status]}</span>
+        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+          <h1 className="min-w-0 break-words text-2xl font-extrabold sm:text-3xl">{s.nome}</h1>
+          <span className="mt-1.5 shrink-0 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">{STATUS_LABEL[s.status]}</span>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Stat label="Vendidos" value={`${vendas.length}/${total}`} />
           <Stat label="Arrecadado" value={formatBRL(vendas.length * Number(s.preco_unitario))} />
           <Stat label="Prêmios" value={String((s.premios_lista as string[]).length)} />
@@ -88,9 +88,9 @@ function Gerenciar() {
         </div>
 
         {s.status !== "preparacao" && (
-          <div className="mt-4 rounded-2xl border bg-card p-4">
+          <div className="mt-4 rounded-2xl border bg-card p-4 sm:p-5">
             <p className="text-sm font-medium">Link da vitrine</p>
-            <p className="mt-1 truncate text-sm text-muted-foreground">{publicUrl}</p>
+            <p className="mt-1 break-all text-sm text-muted-foreground">{publicUrl}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(publicUrl); toast.success("Link copiado"); }}><Copy /> Copiar</Button>
               <Button size="sm" variant="whatsapp" asChild><a href={`https://wa.me/?text=${encodeURIComponent(`🎟️ ${s.nome}\nEscolha seus números: ${publicUrl}`)}`} target="_blank" rel="noreferrer"><Share2 /> Divulgar</a></Button>
@@ -132,9 +132,9 @@ function Gerenciar() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border bg-card p-3">
+    <div className="min-w-0 rounded-2xl border bg-card p-3 last:col-span-2 sm:p-4 sm:last:col-span-1">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-display text-lg font-bold">{value}</p>
+      <p className="truncate font-display text-lg font-bold sm:text-xl">{value}</p>
     </div>
   );
 }
@@ -143,18 +143,29 @@ type S = NonNullable<Awaited<ReturnType<typeof fetchType>>>;
 async function fetchType() { return (await supabase.from("sorteios").select("*").single()).data; }
 type V = { id: string; numero: number; comprador_nome: string; comprador_telefone: string; observacao: string };
 
+function parseNums(txt: string) {
+  return [...new Set(txt.split(/[\s,;]+/).filter(Boolean).map(Number).filter(Number.isInteger))].sort((a, b) => a - b);
+}
+
 function Baixas({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; onChange: () => void }) {
   const [nums, setNums] = useState("");
   const [nome, setNome] = useState("");
   const [tel, setTel] = useState("");
   const [busca, setBusca] = useState("");
   const vendidos = useMemo(() => new Set(vendas.map((v) => v.numero)), [vendas]);
+  const selecionados = useMemo(() => new Set(parseNums(nums)), [nums]);
   const travado = s.status === "encerrado";
+
+  function alternar(n: number) {
+    if (vendidos.has(n) || travado) return;
+    const atual = parseNums(nums);
+    const nova = atual.includes(n) ? atual.filter((x) => x !== n) : [...atual, n].sort((a, b) => a - b);
+    setNums(nova.join(", "));
+  }
 
   async function registrar(e: React.FormEvent) {
     e.preventDefault();
-    const lista = [...new Set(nums.split(/[\s,;]+/).filter(Boolean).map(Number).filter(Number.isInteger))]
-      .filter((n) => n >= s.numero_inicial && n <= s.numero_final);
+    const lista = parseNums(nums).filter((n) => n >= s.numero_inicial && n <= s.numero_final);
     if (!lista.length) { toast.error("Informe números válidos do intervalo"); return; }
     const ocupados = lista.filter((n) => vendidos.has(n));
     if (ocupados.length) { toast.error(`Já vendidos: ${ocupados.join(", ")}`); return; }
@@ -178,28 +189,45 @@ function Baixas({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; onC
   return (
     <div className="space-y-5">
       {!travado && (
-        <form onSubmit={registrar} className="space-y-3 rounded-2xl border bg-card p-4">
+        <form onSubmit={registrar} className="space-y-3 rounded-2xl border bg-card p-4 sm:p-5">
           <p className="font-bold">Dar baixa (registrar venda)</p>
-          <Input required placeholder="Números: 5, 12, 33" value={nums} onChange={(e) => setNums(e.target.value)} />
-          <Input required placeholder="Nome do comprador" value={nome} onChange={(e) => setNome(e.target.value)} />
-          <Input placeholder="Telefone (opcional)" value={tel} onChange={(e) => setTel(e.target.value)} />
-          <Button type="submit" className="w-full">Registrar venda</Button>
+          <Input required placeholder="Toque nos números no mapa ou digite: 5, 12, 33" value={nums} onChange={(e) => setNums(e.target.value)} onBlur={() => setNums(parseNums(nums).join(", "))} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input required placeholder="Nome do comprador" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <Input placeholder="Telefone (opcional)" value={tel} onChange={(e) => setTel(e.target.value)} />
+          </div>
+          <Button type="submit" className="w-full">Registrar venda{selecionados.size > 0 ? ` (${selecionados.size})` : ""}</Button>
         </form>
       )}
 
       <div>
-        <p className="mb-2 text-sm font-medium">Mapa de números</p>
-        <div className="grid grid-cols-10 gap-1">
-          {rangeNumeros(s.numero_inicial, s.numero_final).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => !vendidos.has(n) && !travado && setNums((p) => (p ? `${p}, ${n}` : String(n)))}
-              className={`aspect-square rounded-md text-[10px] font-bold ${vendidos.has(n) ? "bg-primary text-primary-foreground" : "bg-card ring-1 ring-border"}`}
-            >
-              {padNumero(n, s.numero_final)}
-            </button>
-          ))}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium">Mapa de números</p>
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><i className="size-3 rounded bg-card ring-1 ring-border" />Disponível</span>
+            <span className="flex items-center gap-1"><i className="size-3 rounded bg-gold" />Selecionado</span>
+            <span className="flex items-center gap-1"><i className="size-3 rounded bg-primary" />Vendido</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-5 gap-1.5 min-[380px]:grid-cols-8 sm:grid-cols-10 sm:gap-2">
+          {rangeNumeros(s.numero_inicial, s.numero_final).map((n) => {
+            const vend = vendidos.has(n);
+            const on = selecionados.has(n);
+            return (
+              <button
+                key={n}
+                type="button"
+                aria-pressed={on}
+                disabled={vend || travado}
+                onClick={() => alternar(n)}
+                className={`aspect-square min-h-9 rounded-lg text-xs font-bold transition sm:text-sm ${
+                  vend ? "bg-primary text-primary-foreground opacity-80" : on ? "bg-gold text-accent-foreground scale-105 shadow-ticket" : "bg-card ring-1 ring-border hover:ring-primary"
+                }`}
+              >
+                {padNumero(n, s.numero_final)}
+              </button>
+            );
+          })}
         </div>
       </div>
 

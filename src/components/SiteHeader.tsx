@@ -3,7 +3,7 @@ import { Ticket } from "lucide-react";
 
 export function SiteHeader({ dark = false }: { dark?: boolean }) {
   return (
-    <header className={`mx-auto flex max-w-5xl items-center justify-between px-5 py-4 ${dark ? "text-primary-foreground" : "text-foreground"}`}>
+    <header className={`mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6 md:px-8 ${dark ? "text-primary-foreground" : "text-foreground"}`}>
       <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold">
         <span className="grid size-8 place-items-center rounded-lg bg-gold text-accent-foreground">
           <Ticket className="size-4" />

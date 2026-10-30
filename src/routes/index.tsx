@@ -29,7 +29,7 @@ function Index() {
     <div className="min-h-screen">
       <section className="bg-hero pb-16">
         <SiteHeader dark />
-        <div className="mx-auto max-w-5xl px-5 pt-8 text-primary-foreground">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 md:px-8 pt-8 text-primary-foreground">
           <p className="inline-block rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wider text-accent-foreground">
             Rifas & sorteios
           </p>
@@ -57,7 +57,7 @@ function Index() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-5 py-10">
+      <section className="mx-auto max-w-5xl px-4 sm:px-6 md:px-8 py-10">
         <h2 className="text-2xl font-bold">Sorteios abertos</h2>
         {data.length === 0 ? (
           <p className="mt-4 text-muted-foreground">Nenhum sorteio publicado ainda. Seja o primeiro!</p>

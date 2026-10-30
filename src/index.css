@@ -10,6 +10,7 @@
  */
 
 /* Predictable sizing across the app (mirrors Tailwind preflight). */
+@layer base {
 *,
 *::before,
 *::after {
@@ -58,9 +59,9 @@ button {
 input,
 textarea,
 select {
-  font-size: 1rem;
+  font-size: max(1rem, 16px);
 }
-
+}
 
 /* Hide Lovable badge */
 a[href*="lovable.dev"],
