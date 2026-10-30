@@ -46,7 +46,7 @@ function Painel() {
   return (
     <div className="min-h-screen">
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-5 pb-16">
+      <main className="mx-auto w-full max-w-4xl px-4 pb-16 sm:px-6 md:px-8">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-extrabold">Meus sorteios</h1>
           <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/" }))}><LogOut /> Sair</Button>
