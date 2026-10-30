@@ -66,5 +66,5 @@ export function randomIndex(len: number, rand: () => number = secureRandom): num
 function secureRandom(): number {
   const a = new Uint32Array(1);
   crypto.getRandomValues(a);
-  return a[0] / 2 ** 32;
+  return (a[0] ?? 0) / 2 ** 32;
 }

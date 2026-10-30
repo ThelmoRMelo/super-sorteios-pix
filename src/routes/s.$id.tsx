@@ -67,7 +67,7 @@ function Vitrine() {
   }
 
   function comprar() {
-    if (!nome.trim()) return toast.error("Informe seu nome");
+    if (!nome.trim()) { toast.error("Informe seu nome"); return; }
     const msg = mensagemCompra({ sorteio: s.nome, numeros: sel, fim: s.numero_final, preco, nome: nome.trim(), url: window.location.href });
     window.open(whatsappLink(s.whatsapp, msg), "_blank");
   }

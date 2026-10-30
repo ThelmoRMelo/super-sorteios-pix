@@ -155,13 +155,13 @@ function Baixas({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; onC
     e.preventDefault();
     const lista = [...new Set(nums.split(/[\s,;]+/).filter(Boolean).map(Number).filter(Number.isInteger))]
       .filter((n) => n >= s.numero_inicial && n <= s.numero_final);
-    if (!lista.length) return toast.error("Informe números válidos do intervalo");
+    if (!lista.length) { toast.error("Informe números válidos do intervalo"); return; }
     const ocupados = lista.filter((n) => vendidos.has(n));
-    if (ocupados.length) return toast.error(`Já vendidos: ${ocupados.join(", ")}`);
+    if (ocupados.length) { toast.error(`Já vendidos: ${ocupados.join(", ")}`); return; }
     const { error } = await supabase.from("sorteio_numeros").insert(
       lista.map((numero) => ({ sorteio_id: s.id, numero, comprador_nome: nome.trim(), comprador_telefone: tel.trim() })),
     );
-    if (error) return toast.error(error.message.includes("uq_sorteio_numero") ? "Algum número já foi vendido" : error.message);
+    if (error) return void toast.error(error.message.includes("uq_sorteio_numero") ? "Algum número já foi vendido" : error.message);
     toast.success(`${lista.length} número(s) baixado(s) para ${nome}`);
     setNums(""); setNome(""); setTel("");
     onChange();
@@ -236,18 +236,18 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
   const pool = elegiveis(vendas, ganhadores, s.premio_unico_por_participante);
 
   function girar() {
-    if (!pool.length) return toast.error("Não há números elegíveis");
     const vencedor = pool[randomIndex(pool.length)];
+    if (!vencedor) { toast.error("Não há números elegíveis"); return; }
     setSpinning(true);
     let delay = 40;
     const tick = () => {
-      setDisplay(pool[Math.floor(Math.random() * pool.length)].numero);
+      setDisplay(pool[Math.floor(Math.random() * pool.length)]?.numero ?? vencedor.numero);
       delay *= 1.12;
       if (delay < 420) timer.current = setTimeout(tick, delay);
       else {
         setDisplay(vencedor.numero);
         setSpinning(false);
-        setGanhadores((g) => [...g, { premio_idx: prox, premio_nome: premios[prox], numero: vencedor.numero, nome: vencedor.comprador_nome }]);
+        setGanhadores((g) => [...g, { premio_idx: prox, premio_nome: premios[prox] ?? "", numero: vencedor.numero, nome: vencedor.comprador_nome }]);
       }
     };
     tick();
