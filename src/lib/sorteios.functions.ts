@@ -39,5 +39,7 @@ export const getSorteioPublico = createServerFn({ method: "GET" })
     const { data: s } = await sb.from("sorteios").select(PUBLIC_COLS).eq("id", data.id).maybeSingle();
     if (!s) return null;
     const { data: vendidos } = await sb.rpc("numeros_vendidos", { _sorteio_id: data.id });
-    return { sorteio: s, vendidos: (vendidos ?? []) as number[] };
+    const { data: reservados, error: reservaError } = await sb.rpc("numeros_reservados", { _sorteio_id: data.id });
+    if (reservaError) throw new Error("Não foi possível consultar a disponibilidade dos números.");
+    return { sorteio: s, vendidos: (vendidos ?? []) as number[], reservados: reservados ?? [] };
   });

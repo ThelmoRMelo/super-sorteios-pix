@@ -12,3 +12,4 @@
 - Raffle buyer data (sorteio_numeros) is owner-only via RLS; public pages read taken numbers through the `numeros_vendidos` RPC so names/phones never leak.
 - Public raffle pages load via publishable-key server functions in src/lib/sorteios.functions.ts so SSR can emit per-raffle share tags.
 - Draw rules live in src/lib/sorteio-logic.ts (tested) — keep UI free of eligibility logic.
+- Reservations and sales serialize on the raffle row in database functions/triggers; public RPCs expose only occupied numbers, and only owners can read buyer details or confirm/cancel orders. This prevents concurrent double allocation across every sale path.
