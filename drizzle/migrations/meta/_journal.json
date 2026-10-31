@@ -15,6 +15,13 @@
       "when": 1793394274671,
       "tag": "0001_capas_storage_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793405271633,
+      "tag": "0002_reservas_temporarias",
+      "breakpoints": true
     }
   ]
 }
