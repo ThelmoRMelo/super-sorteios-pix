@@ -63,6 +63,7 @@ select {
 }
 }
 
+
 /* Hide Lovable badge */
 a[href*="lovable.dev"],
 iframe[src*="lovable.dev"],
