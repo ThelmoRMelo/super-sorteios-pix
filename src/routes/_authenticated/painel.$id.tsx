@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { reservaAtiva } from "@/lib/reservas";
+import type { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -45,9 +47,20 @@ function Gerenciar() {
       return data;
     },
   });
+  const rq = useQuery({
+    queryKey: ["reservas", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("sorteio_reservas").select("*").eq("sorteio_id", id).eq("status", "pendente").order("created_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+    refetchInterval: 5000,
+  });
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["sorteio", id] });
     qc.invalidateQueries({ queryKey: ["numeros", id] });
+    qc.invalidateQueries({ queryKey: ["reservas", id] });
+    qc.invalidateQueries({ queryKey: ["sorteio-publico", id] });
   };
 
   const s = sq.data;
@@ -105,13 +118,13 @@ function Gerenciar() {
             <TabsTrigger value="apuracao">Apuração</TabsTrigger>
             <TabsTrigger value="editar">Editar</TabsTrigger>
           </TabsList>
-          <TabsContent value="baixas"><Baixas sorteio={s} vendas={vendas} onChange={refresh} /></TabsContent>
+          <TabsContent value="baixas"><Baixas sorteio={s} vendas={vendas} reservas={rq.data ?? []} reservaErro={rq.isError} onChange={refresh} /></TabsContent>
           <TabsContent value="apuracao"><Apuracao sorteio={s} vendas={vendas} onChange={refresh} /></TabsContent>
           <TabsContent value="editar">
             <div className="rounded-2xl border bg-card p-5">
               <SorteioForm
                 initial={{ ...(s as unknown as SorteioInput), preco_unitario: Number(s.preco_unitario), premios_lista: (s.premios_lista as string[]).length ? (s.premios_lista as string[]) : [""] }}
-                lockRange={vendas.length > 0}
+                lockRange={vendas.length > 0 || (rq.data ?? []).some((r) => reservaAtiva(r))}
                 submitLabel="Salvar alterações"
                 onSubmit={async (v) => {
                   const { error } = await supabase.from("sorteios").update({
@@ -147,17 +160,42 @@ function parseNums(txt: string) {
   return [...new Set(txt.split(/[\s,;]+/).filter(Boolean).map(Number).filter(Number.isInteger))].sort((a, b) => a - b);
 }
 
-function Baixas({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; onChange: () => void }) {
+function Baixas({ sorteio: s, vendas, reservas, reservaErro, onChange }: { sorteio: S; vendas: V[]; reservas: Tables<"sorteio_reservas">[]; reservaErro: boolean; onChange: () => void }) {
   const [nums, setNums] = useState("");
   const [nome, setNome] = useState("");
   const [tel, setTel] = useState("");
   const [busca, setBusca] = useState("");
+  const [pedido, setPedido] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [agora, setAgora] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const ativas = reservas.filter((r) => reservaAtiva(r, agora));
+  const reservados = new Set(ativas.flatMap((r) => r.numeros));
+  const selecionado = ativas.find((r) => r.id === pedido);
   const vendidos = useMemo(() => new Set(vendas.map((v) => v.numero)), [vendas]);
   const selecionados = useMemo(() => new Set(parseNums(nums)), [nums]);
-  const travado = s.status === "encerrado";
+  const travado = s.status === "encerrado" || s.status === "cancelado";
+
+  function limpar() { setPedido(null); setNums(""); setNome(""); setTel(""); }
+  function carregar(r: Tables<"sorteio_reservas">) {
+    setPedido(r.id); setNums(r.numeros.join(", ")); setNome(r.comprador_nome); setTel(r.comprador_telefone);
+  }
+  async function resolver(id: string, confirmar: boolean) {
+    if (salvando) return;
+    setSalvando(true);
+    try {
+      const { error } = await supabase.rpc("resolver_reserva", { _pedido_id: id, _confirmar: confirmar });
+      if (error) { toast.error(error.message); onChange(); return; }
+      toast.success(confirmar ? "Pagamento confirmado e números baixados" : "Reserva cancelada; números liberados");
+      limpar(); onChange();
+    } finally { setSalvando(false); }
+  }
 
   function alternar(n: number) {
-    if (vendidos.has(n) || travado) return;
+    if (vendidos.has(n) || reservados.has(n) || travado || pedido || salvando) return;
     const atual = parseNums(nums);
     const nova = atual.includes(n) ? atual.filter((x) => x !== n) : [...atual, n].sort((a, b) => a - b);
     setNums(nova.join(", "));
@@ -165,10 +203,15 @@ function Baixas({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; onC
 
   async function registrar(e: React.FormEvent) {
     e.preventDefault();
+    if (travado || salvando) return;
+    if (pedido) {
+      if (!selecionado) { toast.error("Esta reserva expirou. Escolha os números novamente."); limpar(); onChange(); return; }
+      await resolver(pedido, true); return;
+    }
     const lista = parseNums(nums).filter((n) => n >= s.numero_inicial && n <= s.numero_final);
     if (!lista.length) { toast.error("Informe números válidos do intervalo"); return; }
-    const ocupados = lista.filter((n) => vendidos.has(n));
-    if (ocupados.length) { toast.error(`Já vendidos: ${ocupados.join(", ")}`); return; }
+    const ocupados = lista.filter((n) => vendidos.has(n) || reservados.has(n));
+    if (ocupados.length) { toast.error(`Vendidos ou reservados: ${ocupados.join(", ")}`); return; }
     const { error } = await supabase.from("sorteio_numeros").insert(
       lista.map((numero) => ({ sorteio_id: s.id, numero, comprador_nome: nome.trim(), comprador_telefone: tel.trim() })),
     );
@@ -188,15 +231,37 @@ function Baixas({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; onC
 
   return (
     <div className="space-y-5">
+      <section className="space-y-3">
+        <h2 className="font-bold text-lg">Pedidos pendentes <span className="text-muted-foreground">({ativas.length})</span></h2>
+        {reservaErro && <p className="text-sm text-destructive">Não foi possível carregar os pedidos. Atualize a página antes de dar baixa.</p>}
+        {!reservaErro && ativas.length === 0 && <p className="text-sm text-muted-foreground">Nenhum pedido aguardando confirmação.</p>}
+        {ativas.map((r) => (
+          <div key={r.id} className={`rounded-lg border p-4 ${pedido === r.id ? "border-primary bg-secondary" : "bg-card"}`}>
+            <div className="flex flex-wrap justify-between gap-2">
+              <div className="min-w-0"><p className="font-bold break-words">{r.comprador_nome}</p><p className="text-sm text-muted-foreground">Pedido {r.id.slice(0, 8)} · {r.comprador_telefone}</p></div>
+              <p className="font-bold">{formatBRL(r.numeros.length * Number(r.preco_unitario))}</p>
+            </div>
+            <p className="mt-2 break-words text-sm">Números: {r.numeros.map((n) => padNumero(n, s.numero_final)).join(", ")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Expira em {Math.max(0, Math.ceil((Date.parse(r.expires_at) - agora) / 60000))} min</p>
+            {!travado && <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" disabled={salvando} onClick={() => carregar(r)}>Selecionar pedido</Button>
+              <Button size="sm" disabled={salvando || s.status !== "publicado"} onClick={() => confirm(`Confirmar o pagamento de ${r.comprador_nome}?`) && resolver(r.id, true)}>Confirmar pagamento</Button>
+              <Button size="sm" variant="ghost" disabled={salvando} onClick={() => confirm("Cancelar esta reserva e liberar os números?") && resolver(r.id, false)}>Cancelar reserva</Button>
+            </div>}
+          </div>
+        ))}
+      </section>
       {!travado && (
         <form onSubmit={registrar} className="space-y-3 rounded-2xl border bg-card p-4 sm:p-5">
-          <p className="font-bold">Dar baixa (registrar venda)</p>
-          <Input required placeholder="Toque nos números no mapa ou digite: 5, 12, 33" value={nums} onChange={(e) => setNums(e.target.value)} onBlur={() => setNums(parseNums(nums).join(", "))} />
+          <p className="font-bold">{pedido ? "Confirmar pedido selecionado" : "Dar baixa (registrar venda)"}</p>
+          {pedido && !selecionado && <p className="text-sm text-destructive">Esta reserva expirou.</p>}
+          <Input required aria-label="Números da baixa" readOnly={Boolean(pedido)} placeholder="Toque nos números no mapa ou digite: 5, 12, 33" value={nums} onChange={(e) => setNums(e.target.value)} onBlur={() => setNums(parseNums(nums).join(", "))} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input required placeholder="Nome do comprador" value={nome} onChange={(e) => setNome(e.target.value)} />
-            <Input placeholder="Telefone (opcional)" value={tel} onChange={(e) => setTel(e.target.value)} />
+            <Input required aria-label="Nome do comprador" readOnly={Boolean(pedido)} placeholder="Nome do comprador" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <Input aria-label="Telefone do comprador" readOnly={Boolean(pedido)} placeholder="Telefone (opcional)" value={tel} onChange={(e) => setTel(e.target.value)} />
           </div>
-          <Button type="submit" className="w-full">Registrar venda{selecionados.size > 0 ? ` (${selecionados.size})` : ""}</Button>
+          <Button type="submit" className="w-full" disabled={salvando || reservaErro || Boolean(pedido && (!selecionado || s.status !== "publicado"))}>{pedido ? "Confirmar pagamento" : "Registrar venda"}{selecionados.size > 0 ? ` (${selecionados.size})` : ""}</Button>
+          {pedido && <Button variant="ghost" className="w-full" onClick={limpar}>Limpar seleção</Button>}
         </form>
       )}
 
@@ -206,26 +271,28 @@ function Baixas({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; onC
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><i className="size-3 rounded bg-card ring-1 ring-border" />Disponível</span>
             <span className="flex items-center gap-1"><i className="size-3 rounded bg-gold" />Selecionado</span>
+            <span className="flex items-center gap-1"><i className="size-3 rounded bg-muted ring-1 ring-border" />Reservado</span>
             <span className="flex items-center gap-1"><i className="size-3 rounded bg-primary" />Vendido</span>
           </div>
         </div>
         <div className="grid grid-cols-5 gap-1.5 min-[380px]:grid-cols-8 sm:grid-cols-10 sm:gap-2">
           {rangeNumeros(s.numero_inicial, s.numero_final).map((n) => {
             const vend = vendidos.has(n);
+            const res = reservados.has(n);
             const on = selecionados.has(n);
             return (
-              <button
+              <Button variant="ghost"
                 key={n}
                 type="button"
                 aria-pressed={on}
-                disabled={vend || travado}
+                disabled={vend || res || travado || Boolean(pedido) || salvando}
                 onClick={() => alternar(n)}
-                className={`aspect-square min-h-9 rounded-lg text-xs font-bold transition sm:text-sm ${
-                  vend ? "bg-primary text-primary-foreground opacity-80" : on ? "bg-gold text-accent-foreground scale-105 shadow-ticket" : "bg-card ring-1 ring-border hover:ring-primary"
+                className={`h-auto p-0 aspect-square min-h-9 rounded-lg text-xs font-bold transition sm:text-sm ${
+                  vend ? "bg-primary text-primary-foreground opacity-80" : on ? "bg-gold text-accent-foreground scale-105 shadow-ticket" : res ? "bg-muted text-muted-foreground" : "bg-card ring-1 ring-border hover:ring-primary"
                 }`}
               >
                 {padNumero(n, s.numero_final)}
-              </button>
+              </Button>
             );
           })}
         </div>
