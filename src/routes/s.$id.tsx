@@ -1,6 +1,9 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { criarReserva } from "@/lib/reservas.functions";
+import { type ReservaRecibo } from "@/lib/reservas";
 import { toast } from "sonner";
 import { getSorteioPublico } from "@/lib/sorteios.functions";
 import { formatBRL, mensagemCompra, padNumero, rangeNumeros, whatsappLink, type Ganhador } from "@/lib/sorteio-logic";
@@ -13,7 +16,7 @@ const q = (id: string) =>
   queryOptions({
     queryKey: ["sorteio-publico", id],
     queryFn: () => getSorteioPublico({ data: { id } }),
-    refetchInterval: 15000,
+    refetchInterval: 5000,
   });
 
 export const Route = createFileRoute("/s/$id")({
@@ -52,7 +55,29 @@ function Vitrine() {
   const { data } = useSuspenseQuery(q(id));
   const [sel, setSel] = useState<number[]>([]);
   const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [pedido, setPedido] = useState<(ReservaRecibo & { link: string }) | null>(null);
+  const [agora, setAgora] = useState(0);
+  const pedidoId = useRef<string | null>(null);
+  const reservar = useServerFn(criarReserva);
+  const qc = useQueryClient();
   const vendidos = useMemo(() => new Set(data?.vendidos ?? []), [data]);
+  const reservados = useMemo(() => new Set(data?.reservados ?? []), [data]);
+  useEffect(() => {
+    setSel((ns) => ns.filter((n) => !vendidos.has(n) && !reservados.has(n)));
+  }, [vendidos, reservados]);
+  useEffect(() => {
+    setAgora(Date.now());
+    const timer = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    if (pedido && agora >= Date.parse(pedido.expires_at)) {
+      setPedido(null); pedidoId.current = null;
+      void qc.invalidateQueries({ queryKey: ["sorteio-publico", id] });
+    }
+  }, [pedido, agora, qc, id]);
   if (!data) return null;
   const s = data.sorteio;
   const nums = rangeNumeros(s.numero_inicial, s.numero_final);
@@ -62,14 +87,35 @@ function Vitrine() {
   const preco = Number(s.preco_unitario);
 
   function toggle(n: number) {
-    if (!aberto || vendidos.has(n)) return;
+    if (!aberto || vendidos.has(n) || reservados.has(n) || enviando || pedido) return;
+    pedidoId.current = null;
     setSel((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
   }
 
-  function comprar() {
-    if (!nome.trim()) { toast.error("Informe seu nome"); return; }
-    const msg = mensagemCompra({ sorteio: s.nome, numeros: sel, fim: s.numero_final, preco, nome: nome.trim(), url: window.location.href });
-    window.open(whatsappLink(s.whatsapp, msg), "_blank");
+  async function comprar() {
+    if (nome.trim().length < 2) { toast.error("Informe seu nome completo"); return; }
+    if (telefone.replace(/\D/g, "").length < 10) { toast.error("Informe seu WhatsApp com DDD"); return; }
+    if (!sel.length || enviando) return;
+    const popup = window.open("about:blank", "_blank");
+    if (popup) popup.opener = null;
+    setEnviando(true);
+    pedidoId.current ??= crypto.randomUUID();
+    try {
+      const result = await reservar({ data: { sorteioId: id, pedidoId: pedidoId.current, numeros: sel, nome, telefone } });
+      if (!result.ok) {
+        popup?.close(); toast.error(result.error); pedidoId.current = null;
+        await qc.invalidateQueries({ queryKey: ["sorteio-publico", id] });
+        return;
+      }
+      const msg = mensagemCompra({ sorteio: s.nome, numeros: sel, fim: s.numero_final, preco: Number(result.recibo.preco_unitario), nome: nome.trim(), url: `https://super-sorteios-pix.lovable.app/s/${id}` }) + `\nWhatsApp: ${telefone}\nPedido: ${result.recibo.id}\nReserva válida até: ${new Date(result.recibo.expires_at).toLocaleString("pt-BR")}`;
+      const link = whatsappLink(s.whatsapp, msg);
+      setPedido({ ...result.recibo, link }); setSel([]);
+      if (popup) popup.location.href = link;
+      toast.success("Números reservados por 30 minutos");
+      await qc.invalidateQueries({ queryKey: ["sorteio-publico", id] });
+    } catch {
+      popup?.close(); toast.error("Não foi possível confirmar a reserva. Tente novamente.");
+    } finally { setEnviando(false); }
   }
 
   return (
@@ -82,7 +128,7 @@ function Vitrine() {
           {s.descricao && <p className="mt-3 whitespace-pre-line text-primary-foreground/80">{s.descricao}</p>}
           <div className="mt-5 flex flex-wrap gap-2 text-sm">
             <span className="rounded-full bg-gold px-3 py-1 font-bold text-accent-foreground">{formatBRL(preco)} / número</span>
-            <span className="rounded-full bg-primary-foreground/15 px-3 py-1">{nums.length - vendidos.size} disponíveis</span>
+            <span className="rounded-full bg-primary-foreground/15 px-3 py-1">{nums.filter((n) => !vendidos.has(n) && !reservados.has(n)).length} disponíveis</span>
           </div>
         </div>
       </section>
@@ -114,8 +160,9 @@ function Vitrine() {
         <section>
           <div className="flex flex-wrap items-end justify-between gap-2">
             <h2 className="text-xl font-bold">Escolha seus números</h2>
-            <div className="flex gap-3 text-xs text-muted-foreground">
+            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><i className="size-3 rounded bg-card ring-1 ring-border" />Livre</span>
+              <span className="flex items-center gap-1"><i className="size-3 rounded bg-gold" />Reservado</span>
               <span className="flex items-center gap-1"><i className="size-3 rounded bg-sold" />Vendido</span>
             </div>
           </div>
@@ -123,18 +170,21 @@ function Vitrine() {
           <div className="mt-4 grid grid-cols-5 gap-1.5 min-[380px]:gap-2 sm:grid-cols-10">
             {nums.map((n) => {
               const v = vendidos.has(n);
+              const r = reservados.has(n);
               const on = sel.includes(n);
               return (
-                <button
+                <Button variant="ghost"
                   key={n}
                   onClick={() => toggle(n)}
-                  disabled={v || !aberto}
-                  className={`aspect-square rounded-xl font-display text-sm font-bold transition ${
-                    v ? "bg-sold text-sold-foreground line-through" : on ? "bg-primary text-primary-foreground scale-105 shadow-ticket" : "bg-card ring-1 ring-border hover:ring-primary"
+                  aria-label={`Número ${padNumero(n, s.numero_final)}${v ? " vendido" : r ? " reservado" : ""}`}
+                  aria-pressed={on}
+                  disabled={v || r || !aberto || enviando || Boolean(pedido)}
+                  className={`h-auto aspect-square p-0 rounded-xl font-display text-sm font-bold transition ${
+                    v ? "bg-sold text-sold-foreground line-through" : r ? "bg-gold text-accent-foreground" : on ? "bg-primary text-primary-foreground scale-105 shadow-ticket" : "bg-card ring-1 ring-border hover:ring-primary"
                   }`}
                 >
                   {padNumero(n, s.numero_final)}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -149,16 +199,25 @@ function Vitrine() {
         )}
       </main>
 
-      {sel.length > 0 && aberto && (
+      {pedido && (
+        <div className="fixed inset-x-0 bottom-0 border-t bg-card px-4 py-4 sm:px-6">
+          <div className="mx-auto max-w-4xl flex flex-wrap items-center justify-between gap-3">
+            <div><p className="font-bold">Reserva registrada</p><p className="text-sm text-muted-foreground">Válida por mais {Math.max(0, Math.ceil((Date.parse(pedido.expires_at) - agora) / 60000))} min · Pedido {pedido.id.slice(0, 8)}</p></div>
+            <Button variant="whatsapp" asChild><a href={pedido.link} target="_blank" rel="noreferrer"><MessageCircle /> Abrir WhatsApp</a></Button>
+          </div>
+        </div>
+      )}
+      {sel.length > 0 && aberto && !pedido && (
         <div className="fixed inset-x-0 bottom-0 border-t bg-card/95 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-6">
           <div className="mx-auto w-full max-w-4xl space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span>{sel.length} número(s)</span>
               <b className="font-display text-lg">{formatBRL(sel.length * preco)}</b>
             </div>
-            <div className="flex gap-2">
-              <Input placeholder="Seu nome" value={nome} onChange={(e) => setNome(e.target.value)} />
-              <Button variant="whatsapp" size="lg" onClick={comprar}><MessageCircle /> Reservar</Button>
+            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <Input aria-label="Seu nome" placeholder="Seu nome" maxLength={120} disabled={enviando} value={nome} onChange={(e) => { setNome(e.target.value); pedidoId.current = null; }} />
+              <Input aria-label="Seu WhatsApp com DDD" type="tel" placeholder="WhatsApp com DDD" maxLength={20} disabled={enviando} value={telefone} onChange={(e) => { setTelefone(e.target.value); pedidoId.current = null; }} />
+              <Button variant="whatsapp" size="lg" disabled={enviando} onClick={comprar}><MessageCircle /> {enviando ? "Reservando…" : "Reservar"}</Button>
             </div>
           </div>
         </div>
