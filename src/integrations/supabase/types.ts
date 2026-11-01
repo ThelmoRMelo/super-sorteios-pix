@@ -113,6 +113,7 @@ export type Database = {
           regras: string
           sorteado_em: string | null
           status: string
+          tema: Json | null
           updated_at: string
           whatsapp: string
         }
@@ -132,6 +133,7 @@ export type Database = {
           regras?: string
           sorteado_em?: string | null
           status?: string
+          tema?: Json | null
           updated_at?: string
           whatsapp: string
         }
@@ -151,6 +153,7 @@ export type Database = {
           regras?: string
           sorteado_em?: string | null
           status?: string
+          tema?: Json | null
           updated_at?: string
           whatsapp?: string
         }
