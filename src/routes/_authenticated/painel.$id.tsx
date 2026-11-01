@@ -460,19 +460,77 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
   if (!premios.length) return <p className="text-muted-foreground">Cadastre prêmios na aba Editar.</p>;
   if (!vendas.length) return <p className="text-muted-foreground">Registre vendas antes de sortear.</p>;
 
+  const ganhadorAtual = alvo !== null ? ganhadores.find((g) => g.premio_idx === alvo) : undefined;
+  const completos = premios.every((_, i) => ganhadores.some((g) => g.premio_idx === i));
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
+      <div className="rounded-3xl border bg-card p-4 sm:p-5">
+        <p className="text-sm text-muted-foreground">Somente números vendidos concorrem.</p>
+        <p><span className="font-display text-3xl font-extrabold text-primary">{vendas.length}</span> <span className="text-muted-foreground">número(s) elegíveis</span></p>
+      </div>
+
       {!homologado && (
-        <div className="rounded-3xl bg-hero p-5 text-center text-primary-foreground shadow-ticket sm:p-6">
-          <p className="text-sm uppercase tracking-widest text-primary-foreground/70">
-            {prox < premios.length ? `${prox + 1}º prêmio · ${premios[prox]}` : "Todos os prêmios sorteados"}
-          </p>
-          <p className="text-xs text-primary-foreground/70">{pool.length} número(s) concorrendo</p>
-          {prox < premios.length && (
-            <Button variant="gold" size="lg" className="mt-4" onClick={() => { setRoletaOpen(true); setDisplay(null); setTrackOffset(0); setCartoes([]); }}><Dices /> Abrir roleta</Button>
-          )}
+        <div className="flex items-start justify-between gap-3 rounded-3xl border bg-card p-4 sm:p-5">
+          <div>
+            <p className="font-semibold">Prêmio único por participante</p>
+            <p className="text-sm text-muted-foreground">{premioUnico ? "Quem já ganhou não concorre aos próximos prêmios." : "A mesma pessoa pode ganhar mais de um prêmio."}</p>
+          </div>
+          <Switch checked={premioUnico} disabled={spinning} onCheckedChange={setPremioUnico} aria-label="Prêmio único por participante" />
         </div>
       )}
+
+      {premios.map((premio, idx) => {
+        const g = ganhadores.find((x) => x.premio_idx === idx);
+        const poolIdx = poolPara(idx);
+        const numerosDoGanhador = g ? vendas.filter((v) => v.comprador_nome.trim().toLowerCase() === g.nome.trim().toLowerCase()).map((v) => v.numero).sort((a, b) => a - b) : [];
+        return (
+          <div key={idx} className="space-y-3 rounded-3xl border bg-card p-4 shadow-ticket sm:p-5">
+            <p className="font-display text-lg font-bold">{idx + 1}º Prêmio · {premio}</p>
+            {!homologado && (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button variant="gold" disabled={spinning || !poolIdx.length} onClick={() => abrirRoleta(idx)}><Dices /> {g ? "Sortear novamente" : "Girar roleta"} ({idx + 1}º)</Button>
+                <span className="text-sm text-muted-foreground">{poolIdx.length} elegíveis</span>
+              </div>
+            )}
+            {g ? (
+              <>
+                <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm">
+                  <Trophy className="size-4 text-primary" />
+                  <b className="text-primary">Nº {padNumero(g.numero, s.numero_final)}</b>
+                  <span>· {g.nome}</span>
+                  {!homologado && (
+                    <button type="button" className="ml-1 text-muted-foreground hover:text-foreground" aria-label="Limpar ganhador" onClick={() => setGanhadores((all) => all.filter((x) => x.premio_idx !== idx))}><RotateCcw className="size-4" /></button>
+                  )}
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-semibold">Números adquiridos pelo participante</p>
+                  <div className="flex flex-wrap gap-2 rounded-2xl border bg-background/50 p-3">
+                    {numerosDoGanhador.map((n) => n === g.numero ? (
+                      <span key={n} className="inline-flex items-center gap-1 rounded-lg border border-primary bg-primary/15 px-2 py-1 font-display font-extrabold text-primary"><Star className="size-4 fill-current" />{padNumero(n, s.numero_final)}</span>
+                    ) : (
+                      <span key={n} className="px-2 py-1 font-display text-muted-foreground">{padNumero(n, s.numero_final)}</span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : !homologado && (
+              <div>
+                <p className="mb-2 text-sm font-semibold">Ou digite o número sorteado e pressione Enter</p>
+                <Input inputMode="numeric" placeholder="Número vendido" disabled={spinning} onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  const n = Number((e.target as HTMLInputElement).value.trim());
+                  const venda = poolIdx.find((v) => v.numero === n);
+                  if (!venda) { toast.error("Número não vendido ou não elegível para este prêmio"); return; }
+                  definirGanhador(idx, venda);
+                  (e.target as HTMLInputElement).value = "";
+                }} />
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       <Dialog open={roletaOpen} onOpenChange={(open) => { if (!spinning) setRoletaOpen(open); }}>
         <DialogContent className="flex max-h-[90dvh] w-[94vw] max-w-lg flex-col items-stretch justify-start gap-3 overflow-y-auto overscroll-contain rounded-2xl p-3 sm:p-5">
@@ -492,7 +550,7 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
           <DialogHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 border-b pb-3 pr-8 text-left">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">Apuração oficial</p>
-              <DialogTitle className="mt-1 text-base sm:text-lg">{(display !== null ? Math.max(0, prox - 1) : prox) + 1}º Prêmio · {premios[display !== null ? Math.max(0, prox - 1) : prox] ?? "Resultado"}</DialogTitle>
+              <DialogTitle className="mt-1 text-base sm:text-lg">{(alvo ?? 0) + 1}º Prêmio · {premios[alvo ?? 0] ?? "Resultado"}</DialogTitle>
             </div>
             <Button
               type="button"
@@ -526,11 +584,11 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
             </div>
           </div>
 
-          {display !== null && !spinning && (
+          {display !== null && !spinning && ganhadorAtual && (
             <div className="shrink-0 rounded-xl border border-primary/40 bg-primary/10 p-3 text-center">
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">Número contemplado</p>
               <p className="font-display text-3xl font-extrabold">{padNumero(display, s.numero_final)}</p>
-              <p className="truncate text-sm">{ganhadores.at(-1)?.nome}</p>
+              <p className="truncate text-sm">{ganhadorAtual.nome}</p>
             </div>
           )}
 
@@ -545,22 +603,10 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
         </DialogContent>
       </Dialog>
 
-      {ganhadores.length > 0 && (
-        <ul className="space-y-2">
-          {ganhadores.map((g) => (
-            <li key={g.premio_idx} className="flex items-center gap-3 rounded-2xl border bg-card p-3">
-              <Trophy className="size-5 text-primary" />
-              <span className="font-display font-bold">{padNumero(g.numero, s.numero_final)}</span>
-              <span className="min-w-0 flex-1"><b>{g.nome}</b> <span className="text-sm text-muted-foreground">— {g.premio_idx + 1}º {g.premio_nome}</span></span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {!homologado && ganhadores.length > 0 && !spinning && (
+      {!homologado && !spinning && (
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => { setGanhadores([]); setDisplay(null); }}>Refazer</Button>
-          <Button className="flex-1" onClick={homologar}>Homologar resultado</Button>
+          {ganhadores.length > 0 && <Button variant="outline" className="flex-1" onClick={() => { setGanhadores([]); setDisplay(null); }}>Refazer tudo</Button>}
+          <Button className="flex-1" disabled={!completos} onClick={homologar}><Trophy /> Homologar e salvar ganhadores</Button>
         </div>
       )}
       {homologado && <p className="text-center text-sm text-muted-foreground">Resultado homologado e publicado na vitrine.</p>}
