@@ -22,6 +22,13 @@
       "when": 1793405271633,
       "tag": "0002_reservas_temporarias",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793565201444,
+      "tag": "0003_add_sorteio_tema",
+      "breakpoints": true
     }
   ]
 }

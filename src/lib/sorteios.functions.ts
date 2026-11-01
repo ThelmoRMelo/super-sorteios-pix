@@ -18,7 +18,7 @@ function publicClient() {
 }
 
 const PUBLIC_COLS =
-  "id,nome,descricao,numero_inicial,numero_final,preco_unitario,whatsapp,premios_lista,regras,status,imagem_url,sorteado_em,premio_unico_por_participante,ganhadores_lista";
+  "id,nome,descricao,numero_inicial,numero_final,preco_unitario,whatsapp,premios_lista,regras,status,imagem_url,sorteado_em,premio_unico_por_participante,ganhadores_lista,tema";
 
 export const listSorteiosPublicos = createServerFn({ method: "GET" }).handler(async () => {
   const { data, error } = await publicClient()
