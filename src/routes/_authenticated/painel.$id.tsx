@@ -342,7 +342,7 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [alvo, setAlvo] = useState<number | null>(null);
   const [premioUnico, setPremioUnico] = useState<boolean>(s.premio_unico_por_participante);
-  const poolPara = (idx: number) => elegiveis(vendas, ganhadores.filter((g) => g.premio_idx !== idx), premioUnico);
+  const poolPara = (idx: number) => elegiveis(vendas, ganhadores.filter((g) => g.premio_idx !== idx), premioUnico) as V[];
   const pool = alvo !== null ? poolPara(alvo) : [];
   function definirGanhador(idx: number, v: V) {
     setGanhadores((all) => [...all.filter((g) => g.premio_idx !== idx), { premio_idx: idx, premio_nome: premios[idx] ?? "", numero: v.numero, nome: v.comprador_nome }].sort((a, b) => a.premio_idx - b.premio_idx));
