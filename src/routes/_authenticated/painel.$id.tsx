@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { SiteHeader } from "@/components/SiteHeader";
 import { SorteioForm, type SorteioInput } from "@/components/SorteioForm";
 import { elegiveis, formatBRL, padNumero, randomIndex, rangeNumeros, whatsappLink, type Ganhador } from "@/lib/sorteio-logic";
-import { ArrowLeft, CheckCircle2, Copy, Dices, ExternalLink, Share2, Trash2, Trophy, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Copy, Dices, ExternalLink, RotateCcw, Share2, Star, Trash2, Trophy, Volume2, VolumeX } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { STATUS_LABEL } from "./painel.index";
 import type { TemaConfig } from "@/lib/temas";
 import type { Json } from "@/integrations/supabase/types";
@@ -339,8 +340,16 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
   const soundEnabledRef = useRef(soundEnabled);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prox = ganhadores.length;
-  const pool = elegiveis(vendas, ganhadores, s.premio_unico_por_participante);
+  const [alvo, setAlvo] = useState<number | null>(null);
+  const [premioUnico, setPremioUnico] = useState<boolean>(s.premio_unico_por_participante);
+  const poolPara = (idx: number) => elegiveis(vendas, ganhadores.filter((g) => g.premio_idx !== idx), premioUnico);
+  const pool = alvo !== null ? poolPara(alvo) : [];
+  function definirGanhador(idx: number, v: V) {
+    setGanhadores((all) => [...all.filter((g) => g.premio_idx !== idx), { premio_idx: idx, premio_nome: premios[idx] ?? "", numero: v.numero, nome: v.comprador_nome }].sort((a, b) => a.premio_idx - b.premio_idx));
+  }
+  function abrirRoleta(idx: number) {
+    setAlvo(idx); setRoletaOpen(true); setDisplay(null); setTrackOffset(0); setCartoes([]);
+  }
   soundEnabledRef.current = soundEnabled;
   const confetes = useMemo(() => Array.from({ length: 84 }, () => ({
     left: Math.random() * 100,
@@ -434,7 +443,7 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
       if (elapsed >= 5500) {
         setDisplay(vencedor.numero);
         setSpinning(false);
-        setGanhadores((g) => [...g, { premio_idx: prox, premio_nome: premios[prox] ?? "", numero: vencedor.numero, nome: vencedor.comprador_nome }]);
+        if (alvo !== null) definirGanhador(alvo, vencedor);
         playVictory();
         return;
       }
@@ -453,7 +462,7 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
 
   async function homologar() {
     if (!confirm("Homologar resultado e encerrar o sorteio? Esta ação publica os ganhadores.")) return;
-    const { error } = await supabase.from("sorteios").update({ ganhadores_lista: ganhadores, status: "encerrado", sorteado_em: new Date().toISOString() }).eq("id", s.id);
+    const { error } = await supabase.from("sorteios").update({ ganhadores_lista: ganhadores, premio_unico_por_participante: premioUnico, status: "encerrado", sorteado_em: new Date().toISOString() }).eq("id", s.id);
     if (error) toast.error(error.message); else { toast.success("Resultado homologado!"); onChange(); }
   }
 
