@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { SiteHeader } from "@/components/SiteHeader";
 import { SorteioForm, type SorteioInput } from "@/components/SorteioForm";
 import { elegiveis, formatBRL, padNumero, randomIndex, rangeNumeros, whatsappLink, type Ganhador } from "@/lib/sorteio-logic";
-import { ArrowLeft, CheckCircle2, Copy, Dices, ExternalLink, Share2, Trash2, Trophy } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Copy, Dices, ExternalLink, Share2, Trash2, Trophy, Volume2, VolumeX } from "lucide-react";
 import { STATUS_LABEL } from "./painel.index";
 import type { TemaConfig } from "@/lib/temas";
 import type { Json } from "@/integrations/supabase/types";
@@ -331,17 +331,82 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
   const [display, setDisplay] = useState<number | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [roletaOpen, setRoletaOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [trackOffset, setTrackOffset] = useState(0);
   const [cartoes, setCartoes] = useState<V[]>([]);
   const trilhoRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const soundEnabledRef = useRef(soundEnabled);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prox = ganhadores.length;
   const pool = elegiveis(vendas, ganhadores, s.premio_unico_por_participante);
+  soundEnabledRef.current = soundEnabled;
+  const confetes = useMemo(() => Array.from({ length: 84 }, () => ({
+    left: Math.random() * 100,
+    delay: Math.random() * 0.8,
+    duration: 2.2 + Math.random() * 2,
+    color: ["#34d399", "#22d3ee", "#facc15", "#f472b6", "#a78bfa", "#fb923c"][Math.floor(Math.random() * 6)],
+    rotation: Math.floor(Math.random() * 360),
+  })), []);
+
+  function getAudioContext() {
+    if (!soundEnabledRef.current || typeof window === "undefined") return null;
+    try {
+      const audioWindow = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+      const AudioContextConstructor = window.AudioContext || audioWindow.webkitAudioContext;
+      if (!AudioContextConstructor) return null;
+      if (!audioContextRef.current) audioContextRef.current = new AudioContextConstructor();
+      if (audioContextRef.current.state === "suspended") void audioContextRef.current.resume().catch(() => undefined);
+      return audioContextRef.current;
+    } catch {
+      return null;
+    }
+  }
+
+  function playTick(progress: number) {
+    const context = getAudioContext();
+    if (!context) return;
+    try {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const start = context.currentTime;
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(480 - progress * 160, start);
+      oscillator.frequency.exponentialRampToValueAtTime(140, start + 0.045);
+      gain.gain.setValueAtTime(0.07, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.045);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.05);
+    } catch { /* áudio pode ser bloqueado pelo navegador */ }
+  }
+
+  function playVictory() {
+    const context = getAudioContext();
+    if (!context) return;
+    try {
+      [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+        const start = context.currentTime + index * 0.1;
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(0.13, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.48);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start(start);
+        oscillator.stop(start + 0.5);
+      });
+    } catch { /* áudio pode ser bloqueado pelo navegador */ }
+  }
 
   useEffect(() => () => {
     timeoutRefs.current.forEach(clearTimeout);
     if (timer.current) clearTimeout(timer.current);
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") void audioContextRef.current.close();
   }, []);
 
   function montarCartoes(vencedor: V) {
@@ -370,10 +435,12 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
         setDisplay(vencedor.numero);
         setSpinning(false);
         setGanhadores((g) => [...g, { premio_idx: prox, premio_nome: premios[prox] ?? "", numero: vencedor.numero, nome: vencedor.comprador_nome }]);
+        playVictory();
         return;
       }
       setDisplay(pool[Math.floor(Math.random() * pool.length)]?.numero ?? vencedor.numero);
       const progress = Math.min(elapsed / 5500, 1);
+      playTick(progress);
       timer.current = setTimeout(tick, 40 + Math.pow(progress, 3) * 380);
     };
     // Calcula a posição pelo centro real do cartão e do visor para manter a seta alinhada em qualquer largura.
@@ -409,9 +476,35 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
 
       <Dialog open={roletaOpen} onOpenChange={(open) => { if (!spinning) setRoletaOpen(open); }}>
         <DialogContent className="flex max-h-[90dvh] w-[94vw] max-w-lg flex-col items-stretch justify-start gap-3 overflow-y-auto overscroll-contain rounded-2xl p-3 sm:p-5">
-          <DialogHeader className="shrink-0 border-b pb-3 pr-8 text-left">
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">Apuração oficial</p>
-            <DialogTitle className="mt-1 text-base sm:text-lg">{(display !== null ? Math.max(0, prox - 1) : prox) + 1}º Prêmio · {premios[display !== null ? Math.max(0, prox - 1) : prox] ?? "Resultado"}</DialogTitle>
+          {display !== null && !spinning && (
+            <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-2xl" aria-hidden="true">
+              {confetes.map((confete, index) => (
+                <span key={index} className="roleta-confetti-piece" style={{
+                  left: `${confete.left}%`,
+                  animationDelay: `${confete.delay}s`,
+                  animationDuration: `${confete.duration}s`,
+                  backgroundColor: confete.color,
+                  transform: `rotate(${confete.rotation}deg)`,
+                }} />
+              ))}
+            </div>
+          )}
+          <DialogHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 border-b pb-3 pr-8 text-left">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Apuração oficial</p>
+              <DialogTitle className="mt-1 text-base sm:text-lg">{(display !== null ? Math.max(0, prox - 1) : prox) + 1}º Prêmio · {premios[display !== null ? Math.max(0, prox - 1) : prox] ?? "Resultado"}</DialogTitle>
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="mr-1 text-muted-foreground"
+              onClick={() => setSoundEnabled((enabled) => !enabled)}
+              title={soundEnabled ? "Desativar efeitos sonoros" : "Ativar efeitos sonoros"}
+              aria-label={soundEnabled ? "Desativar efeitos sonoros" : "Ativar efeitos sonoros"}
+            >
+              {soundEnabled ? <Volume2 className="text-primary" /> : <VolumeX />}
+            </Button>
           </DialogHeader>
 
           <div className="relative my-2 shrink-0 select-none">
