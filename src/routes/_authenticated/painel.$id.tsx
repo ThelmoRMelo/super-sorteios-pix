@@ -8,10 +8,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SorteioForm, type SorteioInput } from "@/components/SorteioForm";
 import { elegiveis, formatBRL, padNumero, randomIndex, rangeNumeros, whatsappLink, type Ganhador } from "@/lib/sorteio-logic";
-import { ArrowLeft, Copy, Dices, ExternalLink, Share2, Trash2, Trophy } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Copy, Dices, ExternalLink, Share2, Trash2, Trophy } from "lucide-react";
 import { STATUS_LABEL } from "./painel.index";
 import type { TemaConfig } from "@/lib/temas";
 import type { Json } from "@/integrations/supabase/types";
@@ -329,25 +330,57 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
   const [ganhadores, setGanhadores] = useState<Ganhador[]>(s.ganhadores_lista as Ganhador[]);
   const [display, setDisplay] = useState<number | null>(null);
   const [spinning, setSpinning] = useState(false);
+  const [roletaOpen, setRoletaOpen] = useState(false);
+  const [trackOffset, setTrackOffset] = useState(0);
+  const [cartoes, setCartoes] = useState<V[]>([]);
+  const trilhoRef = useRef<HTMLDivElement>(null);
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prox = ganhadores.length;
   const pool = elegiveis(vendas, ganhadores, s.premio_unico_por_participante);
 
+  useEffect(() => () => {
+    timeoutRefs.current.forEach(clearTimeout);
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  function montarCartoes(vencedor: V) {
+    const total = 55;
+    const indiceVencedor = 45;
+    return Array.from({ length: total }, (_, i) => i === indiceVencedor
+      ? vencedor
+      : pool[Math.floor(Math.random() * pool.length)] ?? vencedor);
+  }
+
   function girar() {
+    if (spinning) return;
     const vencedor = pool[randomIndex(pool.length)];
     if (!vencedor) { toast.error("Não há números elegíveis"); return; }
+    timeoutRefs.current.forEach(clearTimeout);
+    timeoutRefs.current = [];
+    const participantes = montarCartoes(vencedor);
+    setCartoes(participantes);
+    setDisplay(null);
+    setTrackOffset(0);
     setSpinning(true);
-    let delay = 40;
+    const startedAt = Date.now();
     const tick = () => {
-      setDisplay(pool[Math.floor(Math.random() * pool.length)]?.numero ?? vencedor.numero);
-      delay *= 1.12;
-      if (delay < 420) timer.current = setTimeout(tick, delay);
-      else {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= 5500) {
         setDisplay(vencedor.numero);
         setSpinning(false);
         setGanhadores((g) => [...g, { premio_idx: prox, premio_nome: premios[prox] ?? "", numero: vencedor.numero, nome: vencedor.comprador_nome }]);
+        return;
       }
+      setDisplay(pool[Math.floor(Math.random() * pool.length)]?.numero ?? vencedor.numero);
+      const progress = Math.min(elapsed / 5500, 1);
+      timer.current = setTimeout(tick, 40 + Math.pow(progress, 3) * 380);
     };
+    // Calcula a posição pelo centro real do cartão e do visor para manter a seta alinhada em qualquer largura.
+    const trilho = trilhoRef.current;
+    const centroVencedor = 45 * (112 + 8) + 112 / 2;
+    const destino = Math.max(0, Math.round(centroVencedor - (trilho?.clientWidth ?? 0) / 2));
+    requestAnimationFrame(() => setTrackOffset(destino));
     tick();
   }
 
@@ -363,22 +396,61 @@ function Apuracao({ sorteio: s, vendas, onChange }: { sorteio: S; vendas: V[]; o
   return (
     <div className="space-y-5">
       {!homologado && (
-        <div className="overflow-hidden rounded-3xl bg-hero p-6 text-center text-primary-foreground shadow-ticket">
+        <div className="rounded-3xl bg-hero p-5 text-center text-primary-foreground shadow-ticket sm:p-6">
           <p className="text-sm uppercase tracking-widest text-primary-foreground/70">
             {prox < premios.length ? `${prox + 1}º prêmio · ${premios[prox]}` : "Todos os prêmios sorteados"}
           </p>
-          <div className="relative mx-auto my-6 grid size-44 place-items-center rounded-full bg-gold shadow-ticket">
-            <div className={`absolute inset-2 rounded-full border-4 border-dashed border-accent-foreground/30 ${spinning ? "animate-spin" : ""}`} />
-            <span key={spinning ? display ?? 0 : `f${display}`} className={`font-display text-6xl font-extrabold text-accent-foreground ${spinning ? "" : "animate-pop"}`}>
-              {display != null ? padNumero(display, s.numero_final) : "?"}
-            </span>
-          </div>
           <p className="text-xs text-primary-foreground/70">{pool.length} número(s) concorrendo</p>
           {prox < premios.length && (
-            <Button variant="gold" size="lg" className="mt-4" disabled={spinning} onClick={girar}><Dices /> {spinning ? "Girando…" : "Girar roleta"}</Button>
+            <Button variant="gold" size="lg" className="mt-4" onClick={() => { setRoletaOpen(true); setDisplay(null); setTrackOffset(0); setCartoes([]); }}><Dices /> Abrir roleta</Button>
           )}
         </div>
       )}
+
+      <Dialog open={roletaOpen} onOpenChange={(open) => { if (!spinning) setRoletaOpen(open); }}>
+        <DialogContent className="flex max-h-[90dvh] w-[94vw] max-w-lg flex-col items-stretch justify-start gap-3 overflow-y-auto overscroll-contain rounded-2xl p-3 sm:p-5">
+          <DialogHeader className="shrink-0 border-b pb-3 pr-8 text-left">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">Apuração oficial</p>
+            <DialogTitle className="mt-1 text-base sm:text-lg">{(display !== null ? Math.max(0, prox - 1) : prox) + 1}º Prêmio · {premios[display !== null ? Math.max(0, prox - 1) : prox] ?? "Resultado"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="relative my-2 shrink-0 select-none">
+            <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-1">
+              <div className="h-0 w-0 border-x-[10px] border-t-[14px] border-x-transparent border-t-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]" />
+            </div>
+            <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-0.5 -translate-x-1/2 bg-primary/80 shadow-[0_0_12px_hsl(var(--primary)/0.8)]" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-background to-transparent sm:w-20" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-background to-transparent sm:w-20" />
+            <div ref={trilhoRef} className="relative flex h-32 w-full items-center overflow-hidden rounded-2xl border bg-secondary/70 shadow-inner sm:h-36">
+              <div className="flex items-center gap-2 transition-transform [transition-duration:5500ms] [transition-timing-function:cubic-bezier(0.12,0.8,0.15,1)]" style={{ transform: `translateX(-${trackOffset}px)` }}>
+                {cartoes.map((item, idx) => (
+                  <div key={`${idx}-${item.id}`} className={`flex h-24 w-28 shrink-0 flex-col items-center justify-center rounded-xl border p-2 text-center transition-colors ${!spinning && display === item.numero && idx === 45 ? "border-primary bg-primary/15 shadow-[0_0_20px_hsl(var(--primary)/0.35)]" : "bg-card"}`}>
+                    <span className="font-display text-xl font-extrabold">{padNumero(item.numero, s.numero_final)}</span>
+                    <span className="mt-1 max-w-full truncate text-xs text-muted-foreground">{item.comprador_nome || "Anônimo"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {display !== null && !spinning && (
+            <div className="shrink-0 rounded-xl border border-primary/40 bg-primary/10 p-3 text-center">
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Número contemplado</p>
+              <p className="font-display text-3xl font-extrabold">{padNumero(display, s.numero_final)}</p>
+              <p className="truncate text-sm">{ganhadores.at(-1)?.nome}</p>
+            </div>
+          )}
+
+          <div className="mx-auto w-full max-w-md shrink-0 space-y-2 text-center">
+            <p className="text-xs text-muted-foreground">{pool.length} número(s) concorrendo a este prêmio.</p>
+            {display === null || spinning ? (
+              <Button variant="gold" size="lg" className="h-12 w-full" disabled={spinning} onClick={girar}><Dices /> {spinning ? "Girando…" : "Girar roleta"}</Button>
+            ) : (
+              <Button size="lg" className="h-12 w-full" onClick={() => setRoletaOpen(false)}><CheckCircle2 /> Continuar apuração</Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {ganhadores.length > 0 && (
         <ul className="space-y-2">
