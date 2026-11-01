@@ -1,0 +1,17 @@
+{
+  "name": "Super Sorteios Pix",
+  "short_name": "Sorteios Pix",
+  "description": "Rifas e sorteios com reserva de números e pagamento via Pix.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f3ea",
+  "theme_color": "#0f5c43",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
