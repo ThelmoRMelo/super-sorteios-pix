@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Plus, X } from "lucide-react";
 import { CapaUpload } from "@/components/CapaUpload";
+import { TemaSelector } from "@/components/TemaSelector";
+import type { TemaConfig } from "@/lib/temas";
 
 export type SorteioInput = {
   nome: string;
@@ -18,6 +20,7 @@ export type SorteioInput = {
   regras: string;
   imagem_url: string | null;
   premio_unico_por_participante: boolean;
+  tema: TemaConfig | null;
 };
 
 export const vazio: SorteioInput = {
@@ -31,6 +34,7 @@ export const vazio: SorteioInput = {
   regras: "",
   imagem_url: null,
   premio_unico_por_participante: false,
+  tema: null,
 };
 
 export function SorteioForm({
@@ -67,6 +71,7 @@ export function SorteioForm({
       </div>
       <Field label="WhatsApp para pedidos"><Input required placeholder="(85) 99999-0000" value={v.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} /></Field>
       <Field label="Imagem de capa (opcional)"><CapaUpload value={v.imagem_url} onChange={(u) => set("imagem_url", u)} /></Field>
+      <TemaSelector value={v.tema} onChange={(tema) => set("tema", tema)} />
 
       <div>
         <Label>Prêmios (até 30)</Label>

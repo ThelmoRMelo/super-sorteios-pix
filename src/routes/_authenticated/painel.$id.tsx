@@ -13,6 +13,8 @@ import { SorteioForm, type SorteioInput } from "@/components/SorteioForm";
 import { elegiveis, formatBRL, padNumero, randomIndex, rangeNumeros, whatsappLink, type Ganhador } from "@/lib/sorteio-logic";
 import { ArrowLeft, Copy, Dices, ExternalLink, Share2, Trash2, Trophy } from "lucide-react";
 import { STATUS_LABEL } from "./painel.index";
+import type { TemaConfig } from "@/lib/temas";
+import type { Json } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/painel/$id")({
   head: () => ({
@@ -123,7 +125,7 @@ function Gerenciar() {
           <TabsContent value="editar">
             <div className="rounded-2xl border bg-card p-5">
               <SorteioForm
-                initial={{ ...(s as unknown as SorteioInput), preco_unitario: Number(s.preco_unitario), premios_lista: (s.premios_lista as string[]).length ? (s.premios_lista as string[]) : [""] }}
+                initial={{ ...(s as unknown as SorteioInput), tema: (s.tema as unknown as TemaConfig) ?? null, preco_unitario: Number(s.preco_unitario), premios_lista: (s.premios_lista as string[]).length ? (s.premios_lista as string[]) : [""] }}
                 lockRange={vendas.length > 0 || (rq.data ?? []).some((r) => reservaAtiva(r))}
                 submitLabel="Salvar alterações"
                 onSubmit={async (v) => {
@@ -131,6 +133,7 @@ function Gerenciar() {
                     nome: v.nome, descricao: v.descricao, numero_inicial: v.numero_inicial, numero_final: v.numero_final,
                     preco_unitario: v.preco_unitario, whatsapp: v.whatsapp, premios_lista: v.premios_lista, regras: v.regras,
                     imagem_url: v.imagem_url, premio_unico_por_participante: v.premio_unico_por_participante,
+                    tema: v.tema as unknown as Json,
                   }).eq("id", id);
                   if (error) toast.error(error.message); else { toast.success("Salvo"); refresh(); }
                 }}

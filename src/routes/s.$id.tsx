@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Gift, MessageCircle, Trophy } from "lucide-react";
+import { gerarVariaveisCSSTema } from "@/lib/temas";
 
 const q = (id: string) =>
   queryOptions({
@@ -119,9 +120,9 @@ function Vitrine() {
   }
 
   return (
-    <div className="min-h-screen pb-40">
+    <div className="min-h-screen pb-40" style={gerarVariaveisCSSTema(s.tema)}>
       <section className="bg-hero pb-8">
-        <SiteHeader dark />
+        <SiteHeader dark themeIndependent />
         <div className="mx-auto w-full max-w-4xl px-4 text-primary-foreground sm:px-6 md:px-8">
           {s.imagem_url && <img src={s.imagem_url} alt={s.nome} className="mb-5 aspect-[16/9] w-full rounded-2xl object-cover shadow-ticket" />}
           <h1 className="break-words text-2xl font-extrabold sm:text-4xl md:text-5xl">{s.nome}</h1>

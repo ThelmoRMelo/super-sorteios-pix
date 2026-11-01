@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SorteioForm, vazio } from "@/components/SorteioForm";
 import { formatBRL } from "@/lib/sorteio-logic";
 import { LogOut, Plus } from "lucide-react";
+import type { Json } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/painel/")({
   head: () => ({
@@ -61,7 +62,7 @@ function Painel() {
               submitLabel="Criar sorteio"
               onSubmit={async (v) => {
                 if (v.numero_final < v.numero_inicial) return void toast.error("Número final deve ser maior que o inicial");
-                const { data, error } = await supabase.from("sorteios").insert({ ...v, owner_id: user.id }).select("id").single();
+                const { data, error } = await supabase.from("sorteios").insert({ ...v, tema: v.tema as unknown as Json, owner_id: user.id }).select("id").single();
                 if (error) return void toast.error(error.message);
                 toast.success("Sorteio criado!");
                 navigate({ to: "/painel/$id", params: { id: data.id } });
