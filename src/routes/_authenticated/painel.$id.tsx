@@ -232,7 +232,31 @@ function Baixas({ sorteio: s, vendas, reservas, reservaErro, onChange }: { sorte
     if (error) toast.error(error.message); else onChange();
   }
 
-  const filtradas = vendas.filter((v) => !busca || v.comprador_nome.toLowerCase().includes(busca.toLowerCase()) || String(v.numero) === busca);
+  const ganhadores = (s.ganhadores_lista as Ganhador[] | null) || [];
+  const grupos = useMemo(() => {
+    const porComprador = new Map<string, { chave: string; nome: string; telefone: string; itens: V[] }>();
+    for (const venda of vendas) {
+      const nome = venda.comprador_nome.trim();
+      const telefone = venda.comprador_telefone.trim();
+      const chave = `${nome.toLocaleLowerCase()}_${telefone}`;
+      const grupo = porComprador.get(chave) ?? { chave, nome, telefone, itens: [] };
+      grupo.itens.push(venda);
+      porComprador.set(chave, grupo);
+    }
+
+    return [...porComprador.values()].map((grupo) => {
+      grupo.itens.sort((a, b) => a.numero - b.numero);
+      const numeros = new Set(grupo.itens.map((item) => item.numero));
+      return { ...grupo, premiosGanhos: ganhadores.filter((premio) => numeros.has(premio.numero)) };
+    });
+  }, [vendas, ganhadores]);
+  const buscaNormalizada = busca.trim().toLocaleLowerCase();
+  const filtradas = grupos.filter((grupo) => {
+    if (!buscaNormalizada) return true;
+    return grupo.nome.toLocaleLowerCase().includes(buscaNormalizada) ||
+      grupo.telefone.toLocaleLowerCase().includes(buscaNormalizada) ||
+      grupo.itens.some((item) => String(item.numero) === buscaNormalizada || padNumero(item.numero, s.numero_final) === buscaNormalizada);
+  });
 
   return (
     <div className="space-y-5">
@@ -304,22 +328,40 @@ function Baixas({ sorteio: s, vendas, reservas, reservaErro, onChange }: { sorte
       </div>
 
       <div>
-        <Input placeholder="Buscar comprador ou número" value={busca} onChange={(e) => setBusca(e.target.value)} />
-        <ul className="mt-3 divide-y rounded-2xl border bg-card">
-          {filtradas.length === 0 && <li className="p-4 text-sm text-muted-foreground">Nenhuma venda registrada.</li>}
-          {filtradas.map((v) => (
-            <li key={v.id} className="flex items-center gap-3 p-3">
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-secondary font-display text-sm font-bold">{padNumero(v.numero, s.numero_final)}</span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{v.comprador_nome}</p>
-                {v.comprador_telefone && (
-                  <a className="text-xs text-primary" href={whatsappLink(v.comprador_telefone, `Olá ${v.comprador_nome}! Confirmamos seu número ${v.numero} no sorteio ${s.nome}.`)} target="_blank" rel="noreferrer">{v.comprador_telefone}</a>
-                )}
+        <Input placeholder="Buscar por nome, telefone ou número" value={busca} onChange={(e) => setBusca(e.target.value)} />
+        <div className="mt-3 space-y-3">
+          {filtradas.length === 0 && <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">Nenhuma venda registrada.</p>}
+          {filtradas.map((grupo) => (
+            <article key={grupo.chave} className="rounded-2xl border bg-card p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-base font-semibold">{grupo.nome}</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">{grupo.itens.length} {grupo.itens.length === 1 ? "número" : "números"}</p>
+                </div>
+                {grupo.telefone && <a className="rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground" href={whatsappLink(grupo.telefone, `Olá ${grupo.nome}! Confirmamos seus números no sorteio ${s.nome}.`)} target="_blank" rel="noreferrer">{grupo.telefone}</a>}
               </div>
-              {!travado && <Button variant="ghost" size="icon" onClick={() => remover(v)} aria-label="Estornar"><Trash2 /></Button>}
-            </li>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {grupo.itens.map((item) => {
+                  const premio = grupo.premiosGanhos.find((ganhador) => ganhador.numero === item.numero);
+                  return <span key={item.id} className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 font-display text-sm ${premio ? "bg-gold font-extrabold text-accent-foreground shadow-ticket ring-2 ring-gold" : "bg-secondary font-semibold text-secondary-foreground"}`} title={premio ? `${premio.premio_idx + 1}º prêmio${premio.premio_nome ? `: ${premio.premio_nome}` : ""}` : undefined}>
+                    {premio ? "★ " : ""}{padNumero(item.numero, s.numero_final)}
+                    {!travado && <button type="button" onClick={() => remover(item)} aria-label={`Estornar número ${padNumero(item.numero, s.numero_final)}`} className="ml-1 rounded-full p-0.5 opacity-60 hover:bg-black/10 hover:opacity-100"><Trash2 className="size-3.5" /></button>}
+                  </span>;
+                })}
+              </div>
+              {grupo.premiosGanhos.length > 0 && <div className="mt-3 flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-accent-foreground">{grupo.premiosGanhos.map((premio) => `${premio.premio_idx + 1}º prêmio${premio.premio_nome ? `: ${premio.premio_nome}` : ""}`).join(" · ")}</p>
+                {grupo.telefone && (() => {
+                  const premio = grupo.premiosGanhos[0];
+                  const numFmt = padNumero(premio.numero, s.numero_final);
+                  const premioDesc = premio.premio_nome ? `${premio.premio_idx + 1}º Prêmio (${premio.premio_nome})` : `${premio.premio_idx + 1}º Prêmio`;
+                  const texto = `Olá, ${grupo.nome}! Parabéns! 🎉 Seu número ${numFmt} foi sorteado no sorteio ${s.nome} e você ganhou o ${premioDesc}! Entre em contato para combinarmos a entrega do seu prêmio.`;
+                  return <Button size="sm" variant="whatsapp" asChild><a href={whatsappLink(grupo.telefone, texto)} target="_blank" rel="noreferrer">Notificar Ganhador no WhatsApp</a></Button>;
+                })()}
+              </div>}
+            </article>
           ))}
-        </ul>
+        </div>
       </div>
     </div>
   );
