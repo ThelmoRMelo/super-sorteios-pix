@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/SiteHeader";
 import { listSorteiosPublicos } from "@/lib/sorteios.functions";
 import { formatBRL } from "@/lib/sorteio-logic";
-import { Dices, MessageCircle, Trophy } from "lucide-react";
+import { MessageCircle, Radio, Rocket, Trophy } from "lucide-react";
+import heroRoleta from "@/assets/hero-roleta.png";
 
 const publicosQuery = queryOptions({ queryKey: ["sorteios-publicos"], queryFn: () => listSorteiosPublicos() });
 
@@ -27,31 +28,44 @@ function Index() {
   const { data } = useSuspenseQuery(publicosQuery);
   return (
     <div className="min-h-screen">
-      <section className="bg-hero pb-16">
+      <section className="relative overflow-hidden bg-hero pb-16">
+        <div aria-hidden className="pointer-events-none absolute -right-24 top-10 size-96 rounded-full bg-accent/25 blur-3xl" />
         <SiteHeader dark />
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 md:px-8 pt-8 text-primary-foreground">
-          <p className="inline-block rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wider text-accent-foreground">
-            Rifas & sorteios
-          </p>
-          <h1 className="mt-4 max-w-xl text-4xl font-extrabold leading-[1.05] sm:text-6xl">
-            Venda seus números. Sorteie na roleta.
-          </h1>
-          <p className="mt-4 max-w-md text-primary-foreground/80">
-            Crie a vitrine em minutos, receba pedidos pelo WhatsApp e apure os ganhadores ao vivo.
-          </p>
-          <div className="mt-8 flex justify-center">
-            <Button asChild variant="gold" size="lg" className="h-14 w-full max-w-md px-8 text-base font-bold shadow-ticket sm:w-auto">
-              <Link to="/painel">Gerenciar & Criar Sorteios</Link>
-            </Button>
+        <div className="relative mx-auto max-w-5xl px-4 pt-4 text-primary-foreground sm:px-6 md:px-8">
+          <div className="grid items-center gap-6 md:grid-cols-2">
+            <div className="text-center md:text-left">
+              <h1 className="text-5xl font-extrabold leading-[1.02] sm:text-6xl">
+                Seu sorteio
+                <span className="block text-accent">começa aqui</span>
+              </h1>
+              <div className="mx-auto mt-3 h-1 w-40 rounded-full bg-gold md:mx-0" />
+              <p className="mx-auto mt-5 max-w-md text-lg text-primary-foreground/85 md:mx-0">
+                Crie sua vitrine, receba pedidos pelo WhatsApp e apure os ganhadores ao vivo.
+              </p>
+              <div className="mt-8 flex justify-center md:justify-start">
+                <Button asChild variant="gold" size="lg" className="h-14 w-full max-w-md rounded-full px-8 text-base font-bold shadow-ticket sm:w-auto">
+                  <Link to="/painel">
+                    <Rocket className="size-5" /> Gerenciar & Criar Sorteios
+                  </Link>
+                </Button>
+              </div>
+            </div>
+            <img
+              src={heroRoleta}
+              alt="Roleta da sorte dourada com bolinhas numeradas e moedas"
+              width={1024}
+              height={1024}
+              className="mx-auto w-full max-w-sm drop-shadow-2xl md:max-w-md"
+            />
           </div>
-          <div className="mt-10 grid grid-cols-3 gap-3 text-sm">
+          <div className="mt-8 grid grid-cols-3 gap-3 text-sm font-semibold">
             {[
-              { i: MessageCircle, t: "Pedidos no WhatsApp" },
-              { i: Dices, t: "Roleta ao vivo" },
+              { i: MessageCircle, t: "Pedidos pelo WhatsApp" },
+              { i: Radio, t: "Roleta ao vivo" },
               { i: Trophy, t: "Até 30 prêmios" },
             ].map(({ i: I, t }) => (
-              <div key={t} className="rounded-2xl bg-primary-foreground/10 p-3">
-                <I className="mb-2 size-5 text-accent" />
+              <div key={t} className="flex flex-col items-center gap-2 rounded-2xl border border-accent/30 bg-primary-foreground/10 p-4 text-center backdrop-blur-sm">
+                <I className="size-7 text-accent" />
                 {t}
               </div>
             ))}
