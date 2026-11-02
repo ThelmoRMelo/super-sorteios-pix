@@ -17,13 +17,13 @@ export interface TemaConfig {
 }
 
 export const TEMAS_PRESETS: Array<Omit<TemaConfig, "gradienteHero"> & { nome: string }> = [
-  { id: "esmeralda", preset: "esmeralda", nome: "Esmeralda", corPrimaria: "#0d5c3a", corSecundaria: "#f1c40f" },
-  { id: "preto_dourado", preset: "preto_dourado", nome: "Preto & dourado", corPrimaria: "#171717", corSecundaria: "#d4af37" },
-  { id: "roxo_violeta", preset: "roxo_violeta", nome: "Roxo violeta", corPrimaria: "#54278f", corSecundaria: "#f2c94c" },
-  { id: "azul_ciano", preset: "azul_ciano", nome: "Azul & ciano", corPrimaria: "#123b74", corSecundaria: "#22d3ee" },
-  { id: "vermelho_rubi", preset: "vermelho_rubi", nome: "Vermelho rubi", corPrimaria: "#8f1738", corSecundaria: "#f4c95d" },
-  { id: "claro_champagne", preset: "claro_champagne", nome: "Champagne", corPrimaria: "#6f4e37", corSecundaria: "#e8cfa5" },
-].map(({ preset, ...tema }) => ({ ...tema, preset }));
+  { preset: "esmeralda", nome: "Esmeralda", corPrimaria: "#0d5c3a", corSecundaria: "#f1c40f" },
+  { preset: "preto_dourado", nome: "Preto & dourado", corPrimaria: "#171717", corSecundaria: "#d4af37" },
+  { preset: "roxo_violeta", nome: "Roxo violeta", corPrimaria: "#54278f", corSecundaria: "#f2c94c" },
+  { preset: "azul_ciano", nome: "Azul & ciano", corPrimaria: "#123b74", corSecundaria: "#22d3ee" },
+  { preset: "vermelho_rubi", nome: "Vermelho rubi", corPrimaria: "#8f1738", corSecundaria: "#f4c95d" },
+  { preset: "claro_champagne", nome: "Champagne", corPrimaria: "#6f4e37", corSecundaria: "#e8cfa5" },
+];
 
 const HEX = /^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
 const PRESETS = new Set<TemaPresetId>(TEMAS_PRESETS.map((t) => t.preset));
@@ -40,7 +40,7 @@ function isTemaConfig(value: unknown): value is TemaConfig {
 function rgb(hex: string) {
   const value = hex.slice(1);
   const full = value.length === 3 ? [...value].map((c) => c + c).join("") : value;
-  return [0, 2, 4].map((i) => Number.parseInt(full.slice(i, i + 2), 16));
+  return [0, 2, 4].map((i) => Number.parseInt(full.slice(i, i + 2), 16)) as [number, number, number];
 }
 
 function foreground(hex: string) {
@@ -48,7 +48,7 @@ function foreground(hex: string) {
     const c = n / 255;
     return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.42 ? "#18211c" : "#fffdf7";
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b! > 0.42 ? "#18211c" : "#fffdf7";
 }
 
 export function gerarVariaveisCSSTema(tema: unknown): CSSProperties {

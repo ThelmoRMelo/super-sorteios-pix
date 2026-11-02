@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { TEMAS_PRESETS, type TemaConfig, type TemaPresetId } from "@/lib/temas";
 
 const HEX = /^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
-const PADRAO = TEMAS_PRESETS[0];
+const PADRAO = TEMAS_PRESETS[0]!;
 
 export function TemaSelector({ value, onChange }: { value: TemaConfig | null; onChange: (tema: TemaConfig | null) => void }) {
   const [custom, setCustom] = useState(value?.preset === "customizado");
