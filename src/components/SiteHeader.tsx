@@ -18,9 +18,6 @@ export function SiteHeader({ dark = false, themeIndependent = false }: { dark?: 
         </span>
         Sorteiaí
       </Link>
-      <Link to="/painel" className="text-sm font-medium underline-offset-4 hover:underline">
-        Meus sorteios
-      </Link>
     </header>
   );
 }
