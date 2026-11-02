@@ -39,9 +39,11 @@ function Index() {
           <p className="mt-4 max-w-md text-primary-foreground/80">
             Crie a vitrine em minutos, receba pedidos pelo WhatsApp e apure os ganhadores ao vivo.
           </p>
-          <Button asChild variant="gold" size="lg" className="mt-7">
-            <Link to="/painel">Criar meu sorteio</Link>
-          </Button>
+          <div className="mt-8 flex justify-center">
+            <Button asChild variant="gold" size="lg" className="h-14 w-full max-w-md px-8 text-base font-bold shadow-ticket sm:w-auto">
+              <Link to="/painel">Gerenciar & Criar Sorteios</Link>
+            </Button>
+          </div>
           <div className="mt-10 grid grid-cols-3 gap-3 text-sm">
             {[
               { i: MessageCircle, t: "Pedidos no WhatsApp" },

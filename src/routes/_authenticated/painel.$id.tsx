@@ -353,6 +353,7 @@ function Baixas({ sorteio: s, vendas, reservas, reservaErro, onChange }: { sorte
                 <p className="text-sm font-medium text-accent-foreground">{grupo.premiosGanhos.map((premio) => `${premio.premio_idx + 1}º prêmio${premio.premio_nome ? `: ${premio.premio_nome}` : ""}`).join(" · ")}</p>
                 {grupo.telefone && (() => {
                   const premio = grupo.premiosGanhos[0];
+                  if (!premio) return null;
                   const numFmt = padNumero(premio.numero, s.numero_final);
                   const premioDesc = premio.premio_nome ? `${premio.premio_idx + 1}º Prêmio (${premio.premio_nome})` : `${premio.premio_idx + 1}º Prêmio`;
                   const texto = `Olá, ${grupo.nome}! Parabéns! 🎉 Seu número ${numFmt} foi sorteado no sorteio ${s.nome} e você ganhou o ${premioDesc}! Entre em contato para combinarmos a entrega do seu prêmio.`;
