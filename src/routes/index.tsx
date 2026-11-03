@@ -6,11 +6,9 @@ import { listSorteiosPublicos } from "@/lib/sorteios.functions";
 import { formatBRL } from "@/lib/sorteio-logic";
 import { MessageCircle, Radio, Rocket, Trophy } from "lucide-react";
 import heroRoleta from "@/assets/hero-roleta.png";
-import ogCover from "@/assets/og-cover.jpg";
-
 const publicosQuery = queryOptions({ queryKey: ["sorteios-publicos"], queryFn: () => listSorteiosPublicos() });
 
-const ogImageUrl = `https://super-sorteios-pix.lovable.app${ogCover}`;
+const ogImageUrl = "https://super-sorteios-pix.lovable.app/og-cover.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
