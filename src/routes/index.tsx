@@ -6,8 +6,9 @@ import { listSorteiosPublicos } from "@/lib/sorteios.functions";
 import { formatBRL } from "@/lib/sorteio-logic";
 import { MessageCircle, Radio, Rocket, Trophy } from "lucide-react";
 import heroRoleta from "@/assets/hero-roleta.png";
-
 const publicosQuery = queryOptions({ queryKey: ["sorteios-publicos"], queryFn: () => listSorteiosPublicos() });
+
+const ogImageUrl = "https://super-sorteios-pix.lovable.app/og-cover.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -17,7 +18,9 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Sorteiaí — Sorteios por números" },
       { property: "og:description", content: "Vitrine pública, vendas pelo WhatsApp e roleta de apuração." },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: ogImageUrl },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: ogImageUrl },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(publicosQuery),
